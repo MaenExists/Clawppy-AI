@@ -75,12 +75,41 @@ export async function analyzeIntent(userMessage: string, userState: UserState, e
   const response = await result.response;
   const text = response.text();
   
+const FEYNMAN_PROMPT = `
+Evaluate the following explanation using the Feynman Technique.
+Topic: "\${TOPIC}"
+Student Explanation: "\${EXPLANATION}"
+
+Criteria:
+- Simplicity: Is it simple? (No jargon)
+- Accuracy: Are core concepts correct?
+- Completeness: Are major errors present?
+
+Return a JSON object with:
+- "score": number (0-100)
+- "feedback": string (Constructive feedback in Hinglish)
+- "pass": boolean (true if score > 70)
+
+Respond ONLY with the JSON.
+`;
+
+export async function evaluateFeynman(topic: string, explanation: string, env: Env) {
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+  const prompt = FEYNMAN_PROMPT
+    .replace('\${TOPIC}', topic)
+    .replace('\${EXPLANATION}', explanation);
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+  
   try {
-    // Clean up potential markdown formatting from Gemini
     const cleanJson = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanJson);
   } catch (e) {
-    console.error('Failed to parse intent JSON:', text);
+    console.error('Failed to parse Feynman evaluation JSON:', text);
     return null;
   }
 }
