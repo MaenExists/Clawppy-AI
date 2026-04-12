@@ -3,6 +3,7 @@ import { getUserState, saveUserState } from './user';
 import { getGeminiResponse, analyzeIntent, evaluateFeynman } from './gemini';
 import { sendWhatsAppMessage } from './twilio';
 import { getDueReviews, calculateNextReview } from './scheduler';
+import { createPaymentLink } from './payments';
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
@@ -92,6 +93,18 @@ export default {
 							await sendWhatsAppMessage(from, 'No reviews due! Want to learn something new?', env);
 						}
 					}
+					return new Response('OK');
+				}
+				if (command === '/upgrade') {
+					const link = await createPaymentLink(userState, env);
+					const upgradeMsg = `*Clawppy Pro* is ₹49/month.\n\n` +
+						`- Unlimited questions\n` +
+						`- False confidence detection\n` +
+						`- Streak protection\n` +
+						`- Priority Feynman evaluation\n\n` +
+						`Click here to upgrade: \${link}\n\n` +
+						`Type 'YES' to confirm you want to proceed!`;
+					await sendWhatsAppMessage(from, upgradeMsg, env);
 					return new Response('OK');
 				}
 			}
