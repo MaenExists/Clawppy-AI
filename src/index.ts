@@ -1,6 +1,6 @@
 import { Env, TopicState } from './types';
 import { getUserState, saveUserState } from './user';
-import { getGeminiResponse, analyzeIntent, evaluateFeynman } from './gemini';
+import { getAIResponse, analyzeIntent, evaluateFeynman } from './ai';
 import { sendWhatsAppMessage } from './twilio';
 import { getDueReviews, calculateNextReview } from './scheduler';
 import { createPaymentLink } from './payments';
@@ -181,8 +181,8 @@ export default {
 				}
 			}
 
-			// Get response from Gemini
-			const responseText = await getGeminiResponse(body, userState, env);
+			// Get response from AI
+			const responseText = await getAIResponse(body, userState, env);
 
 			// Update user state and save
 			await saveUserState(userState, env);

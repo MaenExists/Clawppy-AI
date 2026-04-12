@@ -20,6 +20,8 @@ export interface Env {
   CLAWPPY_KV: KVNamespace;
   TWILIO_ACCOUNT_SID: string;
   TWILIO_AUTH_TOKEN: string;
-  GEMINI_API_KEY: string;
+  OPENCODE_ZEN_API_KEY: string;
+  OPENCODE_ZEN_BASE_URL: string;
+  OPENCODE_ZEN_MODEL: string;
   TWILIO_PHONE_NUMBER: string;
 }
