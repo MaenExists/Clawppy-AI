@@ -1,7 +1,8 @@
 import { Env, TopicState } from './types';
 import { getUserState, saveUserState } from './user';
-import { getGeminiResponse, analyzeIntent } from './gemini';
+import { getGeminiResponse, analyzeIntent, evaluateFeynman } from './gemini';
 import { sendWhatsAppMessage } from './twilio';
+import { getDueReviews, calculateNextReview } from './scheduler';
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
@@ -38,7 +39,8 @@ export default {
 
 			// Handle commands
 			if (body.startsWith('/')) {
-				const command = body.split(' ')[0].toLowerCase();
+				const commandParts = body.split(' ');
+				const command = commandParts[0].toLowerCase();
 				if (command === '/map') {
 					let mapText = '*Your Knowledge Map* 🗺️\n\n';
 					const topics = Object.entries(userState.knowledgeMap);
@@ -59,6 +61,45 @@ export default {
 					userState.currentTopic = undefined;
 					await saveUserState(userState, env);
 					await sendWhatsAppMessage(from, 'Your knowledge map has been reset.', env);
+					return new Response('OK');
+				}
+				if (command === '/review') {
+					const topic = commandParts.slice(1).join(' ');
+					if (topic && userState.knowledgeMap[topic]) {
+						userState.currentTopic = topic;
+						await saveUserState(userState, env);
+						await sendWhatsAppMessage(from, `Starting review for *\${topic}*. What do you remember?`, env);
+					} else {
+						const due = getDueReviews(userState.knowledgeMap);
+						if (due.length > 0) {
+							const firstDue = due[0];
+							userState.currentTopic = firstDue;
+							await saveUserState(userState, env);
+							await sendWhatsAppMessage(from, `⏰ Review time: *\${firstDue}*. You scored \${Math.round(userState.knowledgeMap[firstDue].actualScore)}% last time. Quick question: [question placeholder]`, env);
+						} else {
+							await sendWhatsAppMessage(from, 'No reviews due! Want to learn something new?', env);
+						}
+					}
+					return new Response('OK');
+				}
+			}
+
+			// Feynman evaluation logic (if current topic is set and user message is long)
+			if (userState.currentTopic && body.length > 100) {
+				const feynman = await evaluateFeynman(userState.currentTopic, body, env);
+				if (feynman) {
+					userState.knowledgeMap[userState.currentTopic].actualScore = feynman.score;
+					userState.knowledgeMap[userState.currentTopic].lastReviewed = new Date().toISOString();
+					userState.knowledgeMap[userState.currentTopic].nextReview = calculateNextReview(userState.knowledgeMap[userState.currentTopic]);
+					
+					if (feynman.pass) {
+						userState.knowledgeMap[userState.currentTopic].status = 'mastered';
+					} else if (feynman.score < 50) {
+						userState.knowledgeMap[userState.currentTopic].status = 'struggling';
+					}
+					
+					await saveUserState(userState, env);
+					await sendWhatsAppMessage(from, feynman.feedback, env);
 					return new Response('OK');
 				}
 			}
@@ -93,6 +134,8 @@ export default {
 						};
 					}
 					userState.knowledgeMap[topic].actualScore = intent.evaluation.score;
+					userState.knowledgeMap[topic].lastReviewed = new Date().toISOString();
+					userState.knowledgeMap[topic].nextReview = calculateNextReview(userState.knowledgeMap[topic]);
 					
 					// False confidence detection
 					if (userState.knowledgeMap[topic].confidence >= 0.7 && userState.knowledgeMap[topic].actualScore < 50) {
