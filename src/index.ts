@@ -4,6 +4,7 @@ import { getGeminiResponse, analyzeIntent, evaluateFeynman } from './gemini';
 import { sendWhatsAppMessage } from './twilio';
 import { getDueReviews, calculateNextReview } from './scheduler';
 import { createPaymentLink } from './payments';
+import { checkRateLimit } from './limiter';
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
@@ -25,6 +26,13 @@ export default {
 
 			// Get user state
 			const userState = await getUserState(phone, env);
+
+			// Rate limiting check
+			const allowed = await checkRateLimit(phone, userState.isPro, env);
+			if (!allowed) {
+				await sendWhatsAppMessage(from, "⚠️ You've reached your daily limit. Upgrade to Pro for unlimited questions!", env);
+				return new Response('OK');
+			}
 
 			// Update streak logic
 			const today = new Date().toISOString().split('T')[0];
