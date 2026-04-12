@@ -37,6 +37,18 @@ export default {
 				}
 			}
 
+			// Handle "Hi" or similar for first-time or greeting
+			const greetingTerms = ['hi', 'hello', 'hey', 'start'];
+			if (greetingTerms.includes(body.toLowerCase())) {
+				const welcomeMsg = `Welcome to Clawppy! 🐾 I'm your AI tutor.\n\n` +
+					`- I teach via Socratic method (no direct answers!)\n` +
+					`- Track your progress via /map\n` +
+					`- Maintain your streak: \${userState.streak} days 🔥\n\n` +
+					`What subject would you like to study today?`;
+				await sendWhatsAppMessage(from, welcomeMsg, env);
+				return new Response('OK');
+			}
+
 			// Handle commands
 			if (body.startsWith('/')) {
 				const commandParts = body.split(' ');
