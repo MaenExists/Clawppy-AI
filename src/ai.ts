@@ -12,10 +12,9 @@ function getClient(env: Env): OpenAI {
 function isMockMode(env: Env): boolean {
 	// Use mock mode if key is literally "placeholder" or if it's empty/missing
 	// Also use mock if the user explicitly sets DISABLE_AI=true
-	return !env.OPENCODE_ZEN_API_KEY || 
-	       env.OPENCODE_ZEN_API_KEY === 'placeholder' ||
-	       env.OPENCODE_ZEN_API_KEY === '' ||
-	       env.DISABLE_AI === 'true';
+	return (
+		!env.OPENCODE_ZEN_API_KEY || env.OPENCODE_ZEN_API_KEY === 'placeholder' || env.OPENCODE_ZEN_API_KEY === '' || env.DISABLE_AI === 'true'
+	);
 }
 
 const SYSTEM_PROMPT = `You are Clawppy 🐾, an AI Socratic Tutor for Indian students (Grades 9-12, NEET/JEE).
@@ -42,11 +41,7 @@ CONTEXT:
 - Knowledge Map: {knowledgeMap}
 - Pro Status: {isPro}`;
 
-export async function getAIResponse(
-	userMessage: string,
-	userState: UserState,
-	env: Env
-): Promise<string> {
+export async function getAIResponse(userMessage: string, userState: UserState, env: Env): Promise<string> {
 	try {
 		const client = getClient(env);
 		const mockMode = isMockMode(env);
@@ -55,20 +50,20 @@ export async function getAIResponse(
 			// Development mode responses
 			const lower = userMessage.toLowerCase();
 			if (lower.includes('what is') || lower.includes('explain')) {
-				return "Great question! Before I explain, tell me - what do you already know about this? 🤔";
+				return 'Great question! Before I explain, tell me - what do you already know about this? 🤔';
 			}
-			if (lower.includes('dont know') || lower.includes('don\'t know') || lower.length < 5) {
+			if (lower.includes('dont know') || lower.includes("don't know") || lower.length < 5) {
 				return "No worries! Let's break it down. Can you think of a real-life example related to this?";
 			}
 			return "I'm Clawppy! Let's learn together. What concept would you like to explore?";
 		}
 
-		const knowledgeMap = Object.entries(userState.knowledgeMap)
-			.map(([topic, state]) => `${topic}: ${state.status} (${Math.round(state.actualScore)}%)`)
-			.join(', ') || 'None yet';
+		const knowledgeMap =
+			Object.entries(userState.knowledgeMap)
+				.map(([topic, state]) => `${topic}: ${state.status} (${Math.round(state.actualScore)}%)`)
+				.join(', ') || 'None yet';
 
-		const prompt = SYSTEM_PROMPT
-			.replace('{currentTopic}', userState.currentTopic || 'None')
+		const prompt = SYSTEM_PROMPT.replace('{currentTopic}', userState.currentTopic || 'None')
 			.replace('{knowledgeMap}', knowledgeMap)
 			.replace('{isPro}', userState.isPro ? 'Pro ✅' : 'Free');
 
@@ -76,7 +71,7 @@ export async function getAIResponse(
 			model: env.OPENCODE_ZEN_MODEL || 'minimax-m2.5',
 			messages: [
 				{ role: 'system', content: prompt },
-				{ role: 'user', content: userMessage }
+				{ role: 'user', content: userMessage },
 			],
 			temperature: 0.7,
 			max_tokens: 300,
@@ -85,24 +80,26 @@ export async function getAIResponse(
 		return response.choices[0]?.message?.content || "Let's try that again! What's your question?";
 	} catch (error: any) {
 		console.error('AI Error:', error?.message || error);
-		
+
 		// If API fails (no credits, invalid key, etc.), fall back to mock mode
-		if (error?.message?.includes('CreditsError') || 
+		if (
+			error?.message?.includes('CreditsError') ||
 			error?.message?.includes('No payment method') ||
 			error?.message?.includes('401') ||
-			error?.message?.includes('Invalid API key')) {
+			error?.message?.includes('Invalid API key')
+		) {
 			console.log('⚠️ API unavailable, falling back to mock mode');
 			const lower = userMessage.toLowerCase();
 			if (lower.includes('what is') || lower.includes('explain')) {
-				return "Great question! Before I explain, tell me - what do you already know about this? 🤔";
+				return 'Great question! Before I explain, tell me - what do you already know about this? 🤔';
 			}
-			if (lower.includes('dont know') || lower.includes('don\'t know') || lower.length < 5) {
+			if (lower.includes('dont know') || lower.includes("don't know") || lower.length < 5) {
 				return "No worries! Let's break it down. Can you think of a real-life example related to this?";
 			}
 			return "I'm Clawppy! Let's learn together. What concept would you like to explore?";
 		}
-		
-		return "Something went wrong! Try again or /start fresh.";
+
+		return 'Something went wrong! Try again or /start fresh.';
 	}
 }
 
@@ -116,11 +113,7 @@ export interface IntentResult {
 	} | null;
 }
 
-export async function analyzeIntent(
-	userMessage: string,
-	userState: UserState,
-	env: Env
-): Promise<IntentResult | null> {
+export async function analyzeIntent(userMessage: string, userState: UserState, env: Env): Promise<IntentResult | null> {
 	try {
 		const client = getClient(env);
 		const mockMode = isMockMode(env);
@@ -129,7 +122,7 @@ export async function analyzeIntent(
 		if (mockMode) {
 			const lower = userMessage.toLowerCase();
 			const topics = ['physics', 'chemistry', 'maths', 'biology', 'thermodynamics', 'calculus', 'algebra'];
-			
+
 			for (const topic of topics) {
 				if (lower.includes(topic)) {
 					return { newTopic: topic.charAt(0).toUpperCase() + topic.slice(1) };
@@ -181,11 +174,7 @@ export interface FeynmanResult {
 	pass: boolean;
 }
 
-export async function evaluateFeynman(
-	topic: string,
-	explanation: string,
-	env: Env
-): Promise<FeynmanResult | null> {
+export async function evaluateFeynman(topic: string, explanation: string, env: Env): Promise<FeynmanResult | null> {
 	try {
 		const client = getClient(env);
 		const mockMode = isMockMode(env);
@@ -194,16 +183,17 @@ export async function evaluateFeynman(
 			// Mock evaluation
 			const wordCount = explanation.split(' ').length;
 			const hasJargon = /\b(equation|formula|therefore|thus|hence)\b/i.test(explanation);
-			
+
 			let score = Math.min(100, wordCount * 2);
 			if (hasJargon) score -= 20;
-			
+
 			return {
 				score,
-				feedback: score > 70 
-					? `Great explanation of ${topic}! 🎉 You made it simple. Topic mastered!`
-					: `Good try on ${topic}! Try explaining it simpler, like to a 5-year-old.`,
-				pass: score > 70
+				feedback:
+					score > 70
+						? `Great explanation of ${topic}! 🎉 You made it simple. Topic mastered!`
+						: `Good try on ${topic}! Try explaining it simpler, like to a 5-year-old.`,
+				pass: score > 70,
 			};
 		}
 

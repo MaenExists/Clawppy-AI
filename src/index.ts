@@ -105,7 +105,6 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
 
 		// Regular message - analyze intent and respond
 		return await handleRegularMessage(body, from, userState, env);
-
 	} catch (error) {
 		console.error('❌ Webhook Error:', error);
 		return new Response('Internal Server Error', { status: 500 });
@@ -116,12 +115,7 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
 // COMMAND HANDLER
 // ============================================================================
 
-async function handleCommand(
-	body: string,
-	from: string,
-	userState: UserStateFull,
-	env: Env
-): Promise<Response> {
+async function handleCommand(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const parts = body.split(' ');
 	const command = parts[0].toLowerCase();
 	const args = parts.slice(1).join(' ');
@@ -131,10 +125,9 @@ async function handleCommand(
 			return await showKnowledgeMap(from, userState, env);
 
 		case '/streak':
-			const streakMsg = `🔥 *Your Streak:* ${userState.streak} day${userState.streak !== 1 ? 's' : ''}\n\n` +
-				(userState.isPro
-					? '🛡️ Pro protected - streak safe!'
-					: '💎 Upgrade to Pro for streak protection!');
+			const streakMsg =
+				`🔥 *Your Streak:* ${userState.streak} day${userState.streak !== 1 ? 's' : ''}\n\n` +
+				(userState.isPro ? '🛡️ Pro protected - streak safe!' : '💎 Upgrade to Pro for streak protection!');
 			await sendWhatsAppMessage(from, streakMsg, env);
 			return new Response('OK');
 
@@ -170,10 +163,8 @@ async function handleCommand(
 
 async function handleGreeting(from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const isNewUser = userState.joinedAt === userState.lastActive;
-	
-	let msg = isNewUser
-		? `🐾 *Welcome to Clawppy!* Your AI study buddy.\n\n`
-		: `Welcome back! 🔥 Streak: ${userState.streak} days\n\n`;
+
+	let msg = isNewUser ? `🐾 *Welcome to Clawppy!* Your AI study buddy.\n\n` : `Welcome back! 🔥 Streak: ${userState.streak} days\n\n`;
 
 	msg += `I teach using the *Socratic Method* - asking questions to help YOU find the answers.\n\n`;
 	msg += `🎯 Your learning goals:\n`;
@@ -244,7 +235,8 @@ async function handleUpgradeCommand(from: string, userState: UserStateFull, env:
 	const monthlyLink = await createPaymentLink(userState, env);
 	const yearlyLink = await createYearPlanLink(userState, env);
 
-	const msg = `💎 *Clawppy Pro* 💎\n\n` +
+	const msg =
+		`💎 *Clawppy Pro* 💎\n\n` +
 		`*Monthly:* ₹49/month\n` +
 		`• Unlimited questions\n` +
 		`• False confidence detection\n` +
@@ -261,9 +253,10 @@ async function handleUpgradeCommand(from: string, userState: UserStateFull, env:
 
 async function handlePracticeCommand(args: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const topic = args || userState.currentTopic || 'General';
-	
+
 	// In production, this would generate actual practice questions
-	const msg = `📝 *Practice: ${topic}*\n\n` +
+	const msg =
+		`📝 *Practice: ${topic}*\n\n` +
 		`Try this question:\n\n` +
 		`"Explain ${topic} in your own words as if teaching a friend."\n\n` +
 		`Then I'll evaluate your understanding!`;
@@ -325,7 +318,11 @@ async function handleQuizAnswer(body: string, from: string, userState: UserState
 
 		if (conf >= 0.7 && score < 50) {
 			userState.knowledgeMap[topic].status = 'unconscious_incompetence';
-			await sendWhatsAppMessage(from, `⚠️ *False Confidence Detected!*\n\nYou rated yourself ${Math.round(conf * 10)}/10 but scored ${score}%.\n\nLet's rebuild from basics.`, env);
+			await sendWhatsAppMessage(
+				from,
+				`⚠️ *False Confidence Detected!*\n\nYou rated yourself ${Math.round(conf * 10)}/10 but scored ${score}%.\n\nLet's rebuild from basics.`,
+				env,
+			);
 		} else if (score >= 85) {
 			userState.knowledgeMap[topic].status = 'mastered';
 			await sendWhatsAppMessage(from, `🎉 *Great job!*\n\n${score}% on "${topic}"! Ready for the Feynman challenge?`, env);
@@ -346,19 +343,19 @@ async function handleQuizAnswer(body: string, from: string, userState: UserState
 async function handleConfidenceRating(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const match = body.match(/(\d+)/);
 	if (!match) {
-		await sendWhatsAppMessage(from, "Please reply with a number 1-10", env);
+		await sendWhatsAppMessage(from, 'Please reply with a number 1-10', env);
 		return new Response('OK');
 	}
 
 	const rating = Math.min(10, Math.max(1, parseInt(match[1])));
-	
+
 	if (userState.currentTopic) {
 		userState.knowledgeMap[userState.currentTopic].confidence = rating / 10;
-		
+
 		// Ask a quick quiz question to validate
 		userState.waitingForQuizAnswer = true;
 		await saveUserState(userState, env);
-		
+
 		await sendWhatsAppMessage(from, `Got it! ${rating}/10 confidence.\n\nQuick check: What's the key concept from what we learned?`, env);
 	}
 
@@ -461,8 +458,7 @@ async function handlePaymentCallback(request: Request, env: Env): Promise<Respon
 	const phone = url.searchParams.get('phone');
 
 	if (phone) {
-		const msg = `✅ Payment successful! Welcome to Pro!\n\n` +
-			`Your streak is now protected forever!`;
+		const msg = `✅ Payment successful! Welcome to Pro!\n\n` + `Your streak is now protected forever!`;
 		await sendWhatsAppMessage(`whatsapp:${phone}`, msg, env);
 	}
 
@@ -479,9 +475,10 @@ async function handlePaymentWebhook(request: Request, env: Env): Promise<Respons
 		if (result.success && result.phone) {
 			const userState = await getUserState(result.phone, env);
 			userState.isPro = true;
-			userState.proExpiresAt = result.plan === 'pro_yearly'
-				? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-				: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+			userState.proExpiresAt =
+				result.plan === 'pro_yearly'
+					? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+					: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 			await saveUserState(userState, env);
 
 			await sendWhatsAppMessage(`whatsapp:${result.phone}`, `🎉 Payment confirmed! Pro activated!`, env);
@@ -498,7 +495,8 @@ async function handlePaymentWebhook(request: Request, env: Env): Promise<Respons
 // CONSTANTS
 // ============================================================================
 
-const HELP_MESSAGE = `📋 *Clawppy Commands*\n\n` +
+const HELP_MESSAGE =
+	`📋 *Clawppy Commands*\n\n` +
 	`/map - View your knowledge map\n` +
 	`/streak - See your streak count\n` +
 	`/review [topic] - Review a specific topic\n` +
@@ -508,7 +506,8 @@ const HELP_MESSAGE = `📋 *Clawppy Commands*\n\n` +
 	`/reset - Reset your progress\n\n` +
 	`Just chat normally to learn!`;
 
-const RATELIMIT_MESSAGE = `⚠️ *Daily limit reached!*\n\n` +
+const RATELIMIT_MESSAGE =
+	`⚠️ *Daily limit reached!*\n\n` +
 	`Free users: 10 questions/day\n` +
 	`Upgrade to Pro for unlimited!\n\n` +
 	`Type /upgrade to go Pro - just ₹49/month`;

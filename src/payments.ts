@@ -8,10 +8,7 @@ interface PaymentLinkResponse {
 	short_url: string;
 }
 
-export async function createPaymentLink(
-	user: UserState,
-	env: Env
-): Promise<string> {
+export async function createPaymentLink(user: UserState, env: Env): Promise<string> {
 	const isMock = env.RAZORPAY_KEY_ID === 'placeholder';
 
 	if (isMock) {
@@ -25,7 +22,7 @@ export async function createPaymentLink(
 	const response = await fetch(`${RAZORPAY_API}/payment_links`, {
 		method: 'POST',
 		headers: {
-			'Authorization': `Basic ${auth}`,
+			Authorization: `Basic ${auth}`,
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
@@ -60,24 +57,17 @@ export async function verifyPaymentSignature(
 	razorpayOrderId: string,
 	razorpayPaymentId: string,
 	razorpaySignature: string,
-	env: Env
+	env: Env,
 ): Promise<boolean> {
 	// For webhook verification, you can use Razorpay's webhook secret
 	// This is a simplified version
-	return !!(
-		razorpayOrderId &&
-		razorpayPaymentId &&
-		razorpaySignature
-	);
+	return !!(razorpayOrderId && razorpayPaymentId && razorpaySignature);
 }
 
-export async function processPaymentWebhook(
-	payload: any,
-	env: Env
-): Promise<{ success: boolean; phone?: string; plan?: string }> {
+export async function processPaymentWebhook(payload: any, env: Env): Promise<{ success: boolean; phone?: string; plan?: string }> {
 	try {
 		const event = payload.event;
-		
+
 		if (event === 'payment_link.paid') {
 			const payloadData = payload.payload?.payment_link?.notes;
 			if (payloadData?.phone && payloadData?.plan === 'pro_monthly') {
@@ -97,10 +87,7 @@ export async function processPaymentWebhook(
 }
 
 // Generate year plan payment link
-export async function createYearPlanLink(
-	user: UserState,
-	env: Env
-): Promise<string> {
+export async function createYearPlanLink(user: UserState, env: Env): Promise<string> {
 	const isMock = env.RAZORPAY_KEY_ID === 'placeholder';
 
 	if (isMock) {
@@ -113,7 +100,7 @@ export async function createYearPlanLink(
 	const response = await fetch(`${RAZORPAY_API}/payment_links`, {
 		method: 'POST',
 		headers: {
-			'Authorization': `Basic ${auth}`,
+			Authorization: `Basic ${auth}`,
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
