@@ -1,0 +1,33 @@
+# Clawppy Environment Variables
+# Copy this file to .dev.vars and fill in your actual values
+
+# ============================================================================
+# TWILIO WHATSAPP SETUP
+# ============================================================================
+# Get from: https://console.twilio.com
+# 1. Create account
+# 2. Enable WhatsApp in Twilio Console
+# 3. Get a WhatsApp-enabled phone number
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=whatsapp:+14155238886
+
+# ============================================================================
+# AI CONFIGURATION (OpenCode Zen - OpenAI Compatible)
+# ============================================================================
+# Get from: https://platform.opencode.ai
+# Sign up, get API key, use "opencode/gpt-4o" model
+OPENCODE_ZEN_API_KEY=your_opencode_api_key
+OPENCODE_ZEN_BASE_URL=https://api.opencode.ai/v1
+OPENCODE_ZEN_MODEL=opencode/gpt-4o
+
+# ============================================================================
+# RAZORPAY PAYMENTS (India)
+# ============================================================================
+# Get from: https://dashboard.razorpay.com
+# 1. Create account
+# 2. Generate API keys
+# 3. Create webhook for payment events
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret

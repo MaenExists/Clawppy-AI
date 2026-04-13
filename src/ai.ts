@@ -1,107 +1,234 @@
 import OpenAI from 'openai';
 import { Env, UserState } from './types';
 
-const SYSTEM_PROMPT = `
-You are Clawppy, an AI Socratic Tutor for Indian students (Grades 9–12, NEET/JEE).
-Your mission is to help students learn actively, not just provide answers.
+function getClient(env: Env): OpenAI {
+	return new OpenAI({
+		apiKey: env.OPENCODE_ZEN_API_KEY,
+		baseURL: env.OPENCODE_ZEN_BASE_URL || 'https://opencode.ai/zen/v1',
+	});
+}
 
-CORE IDENTITY:
-- Name: Clawppy
-- Personality: Friendly, encouraging, patient, and culturally resonant.
-- Language: Fluent, professional, and warm English.
-- Motto: "Master the concepts, own your future."
+// Check if we should use mock mode
+function isMockMode(env: Env): boolean {
+	// Use mock mode if key is literally "placeholder" or if it's empty/missing
+	// Also use mock if the user explicitly sets DISABLE_AI=true
+	return !env.OPENCODE_ZEN_API_KEY || 
+	       env.OPENCODE_ZEN_API_KEY === 'placeholder' ||
+	       env.OPENCODE_ZEN_API_KEY === '' ||
+	       env.DISABLE_AI === 'true';
+}
 
-THE CLAWPPY WAY:
-1. Socratic Hook: Always start by asking what the student already knows about a topic.
-2. The Struggle: If they are stuck, give a tiny hint or an analogy.
-3. Calibration: After a small victory, ask "How confident are you (1-10)?" and then test them.
-4. Feynman Boss: To master a topic, they must explain it to you like you're a 10-year-old.
+const SYSTEM_PROMPT = `You are Clawppy 🐾, an AI Socratic Tutor for Indian students (Grades 9-12, NEET/JEE).
+
+PERSONALITY:
+- Friendly, encouraging, patient
+- Speaks clear English with occasional Hindi words
+- Uses emojis appropriately
+
+METHODOLOGY (NEVER DEVIATE):
+1. Socratic Questions: Ask what they know first, never give direct answers
+2. Micro-hints: When stuck, give tiny hints or relatable analogies (cricket, chai, etc.)
+3. Confidence Check: Ask "How confident are you? (1-10)" then validate with a quick question
+4. Feynman Test: To master a topic, they explain it simply like you're a 10-year-old
 
 RULES:
-- NEVER give the final answer directly.
-- Keep responses concise for WhatsApp.
-- If they ask for an answer, say "If I give you the answer, your brain will go on a vacation. Let's exercise it instead!"
-- Detect "False Confidence" (High rating + low quiz score).
+- NEVER give the final answer directly
+- If they ask for answer, say: "Let your brain exercise! Try explaining what you know..."
+- Keep responses under 300 characters for WhatsApp
+- Detect false confidence: high confidence + wrong answers = gap to fill
 
 CONTEXT:
-- User Map: \${USER_STATE_JSON}
-- Current Topic: \${CURRENT_TOPIC}
-- Pro Status: \${PRO_STATUS}
-`;
+- Current Topic: {currentTopic}
+- Knowledge Map: {knowledgeMap}
+- Pro Status: {isPro}`;
 
-function getClient(env: Env) {
-  return new OpenAI({
-    apiKey: env.OPENCODE_ZEN_API_KEY,
-    baseURL: env.OPENCODE_ZEN_BASE_URL,
-  });
+export async function getAIResponse(
+	userMessage: string,
+	userState: UserState,
+	env: Env
+): Promise<string> {
+	try {
+		const client = getClient(env);
+		const mockMode = isMockMode(env);
+
+		if (mockMode) {
+			// Development mode responses
+			const lower = userMessage.toLowerCase();
+			if (lower.includes('what is') || lower.includes('explain')) {
+				return "Great question! Before I explain, tell me - what do you already know about this? 🤔";
+			}
+			if (lower.includes('dont know') || lower.includes('don\'t know') || lower.length < 5) {
+				return "No worries! Let's break it down. Can you think of a real-life example related to this?";
+			}
+			return "I'm Clawppy! Let's learn together. What concept would you like to explore?";
+		}
+
+		const knowledgeMap = Object.entries(userState.knowledgeMap)
+			.map(([topic, state]) => `${topic}: ${state.status} (${Math.round(state.actualScore)}%)`)
+			.join(', ') || 'None yet';
+
+		const prompt = SYSTEM_PROMPT
+			.replace('{currentTopic}', userState.currentTopic || 'None')
+			.replace('{knowledgeMap}', knowledgeMap)
+			.replace('{isPro}', userState.isPro ? 'Pro ✅' : 'Free');
+
+		const response = await client.chat.completions.create({
+			model: env.OPENCODE_ZEN_MODEL || 'minimax-m2.5',
+			messages: [
+				{ role: 'system', content: prompt },
+				{ role: 'user', content: userMessage }
+			],
+			temperature: 0.7,
+			max_tokens: 300,
+		});
+
+		return response.choices[0]?.message?.content || "Let's try that again! What's your question?";
+	} catch (error: any) {
+		console.error('AI Error:', error?.message || error);
+		
+		// If API fails (no credits, invalid key, etc.), fall back to mock mode
+		if (error?.message?.includes('CreditsError') || 
+			error?.message?.includes('No payment method') ||
+			error?.message?.includes('401') ||
+			error?.message?.includes('Invalid API key')) {
+			console.log('⚠️ API unavailable, falling back to mock mode');
+			const lower = userMessage.toLowerCase();
+			if (lower.includes('what is') || lower.includes('explain')) {
+				return "Great question! Before I explain, tell me - what do you already know about this? 🤔";
+			}
+			if (lower.includes('dont know') || lower.includes('don\'t know') || lower.length < 5) {
+				return "No worries! Let's break it down. Can you think of a real-life example related to this?";
+			}
+			return "I'm Clawppy! Let's learn together. What concept would you like to explore?";
+		}
+		
+		return "Something went wrong! Try again or /start fresh.";
+	}
 }
 
-export async function getAIResponse(userMessage: string, userState: UserState, env: Env) {
-  const openai = getClient(env);
-  
-  const dynamicSystemPrompt = SYSTEM_PROMPT
-    .replace('\${USER_STATE_JSON}', JSON.stringify(userState.knowledgeMap))
-    .replace('\${CURRENT_TOPIC}', userState.currentTopic || 'None')
-    .replace('\${PRO_STATUS}', userState.isPro ? 'Pro User' : 'Free User');
-
-  const response = await openai.chat.completions.create({
-    model: env.OPENCODE_ZEN_MODEL,
-    messages: [
-      { role: 'system', content: dynamicSystemPrompt },
-      { role: 'user', content: userMessage }
-    ],
-  });
-
-  return response.choices[0].message.content || "Sorry, I'm a bit sleepy. Can you say that again?";
+export interface IntentResult {
+	newTopic?: string;
+	confidenceRating?: number | null;
+	evaluation?: {
+		topic: string;
+		score: number;
+		feedback: string;
+	} | null;
 }
 
-export async function analyzeIntent(userMessage: string, userState: UserState, env: Env) {
-  const openai = getClient(env);
+export async function analyzeIntent(
+	userMessage: string,
+	userState: UserState,
+	env: Env
+): Promise<IntentResult | null> {
+	try {
+		const client = getClient(env);
+		const mockMode = isMockMode(env);
 
-  const prompt = `
-Analyze the user message and state. Return ONLY JSON.
-- "newTopic": string | null
-- "confidenceRating": number | null (1-10)
-- "evaluation": { topic: string, score: number, feedback: string } | null
+		// Simple intent detection for mock mode
+		if (mockMode) {
+			const lower = userMessage.toLowerCase();
+			const topics = ['physics', 'chemistry', 'maths', 'biology', 'thermodynamics', 'calculus', 'algebra'];
+			
+			for (const topic of topics) {
+				if (lower.includes(topic)) {
+					return { newTopic: topic.charAt(0).toUpperCase() + topic.slice(1) };
+				}
+			}
 
-User Message: "\${userMessage}"
-User State: \${JSON.stringify(userState)}
-`.trim();
+			// Detect confidence rating
+			const confidenceMatch = userMessage.match(/(\d+)\/10|confidence\s*(\d+)/i);
+			if (confidenceMatch) {
+				const rating = parseInt(confidenceMatch[1] || confidenceMatch[2]);
+				if (rating >= 1 && rating <= 10) {
+					return { confidenceRating: rating };
+				}
+			}
 
-  const response = await openai.chat.completions.create({
-    model: env.OPENCODE_ZEN_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' }
-  });
+			return { newTopic: null };
+		}
 
-  try {
-    return JSON.parse(response.choices[0].message.content || '{}');
-  } catch (e) {
-    return null;
-  }
+		const prompt = `Analyze this WhatsApp message from a student. Return ONLY valid JSON:
+
+{
+  "newTopic": "string or null - subject/topic they're asking about",
+  "confidenceRating": "number 1-10 or null - if they rate their understanding",
+  "evaluation": "object or null - if they answered a quiz question {topic, score, feedback}"
 }
 
-export async function evaluateFeynman(topic: string, explanation: string, env: Env) {
-  const openai = getClient(env);
+Message: "${userMessage}"
+Current Topic: ${userState.currentTopic || 'none'}
+Previous Quiz Score: ${userState.currentTopic ? userState.knowledgeMap[userState.currentTopic]?.actualScore || 'none' : 'none'}`;
 
-  const prompt = `
-Evaluate as Clawppy (Socratic/English). Topic: "\${topic}". Explanation: "\${explanation}".
-Criteria: Simplicity (no jargon), Accuracy, Completeness.
-Return ONLY JSON:
-- "score": number (0-100)
-- "feedback": string (English)
-- "pass": boolean (score > 70)
-`.trim();
+		const response = await client.chat.completions.create({
+			model: env.OPENCODE_ZEN_MODEL || 'minimax-m2.5',
+			messages: [{ role: 'user', content: prompt }],
+			response_format: { type: 'json_object' },
+			temperature: 0.3,
+		});
 
-  const response = await openai.chat.completions.create({
-    model: env.OPENCODE_ZEN_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' }
-  });
+		const content = response.choices[0]?.message?.content;
+		return content ? JSON.parse(content) : null;
+	} catch (error: any) {
+		console.error('Intent Analysis Error:', error?.message || error);
+		return null;
+	}
+}
 
-  try {
-    return JSON.parse(response.choices[0].message.content || '{}');
-  } catch (e) {
-    return null;
-  }
+export interface FeynmanResult {
+	score: number;
+	feedback: string;
+	pass: boolean;
+}
+
+export async function evaluateFeynman(
+	topic: string,
+	explanation: string,
+	env: Env
+): Promise<FeynmanResult | null> {
+	try {
+		const client = getClient(env);
+		const mockMode = isMockMode(env);
+
+		if (mockMode) {
+			// Mock evaluation
+			const wordCount = explanation.split(' ').length;
+			const hasJargon = /\b(equation|formula|therefore|thus|hence)\b/i.test(explanation);
+			
+			let score = Math.min(100, wordCount * 2);
+			if (hasJargon) score -= 20;
+			
+			return {
+				score,
+				feedback: score > 70 
+					? `Great explanation of ${topic}! 🎉 You made it simple. Topic mastered!`
+					: `Good try on ${topic}! Try explaining it simpler, like to a 5-year-old.`,
+				pass: score > 70
+			};
+		}
+
+		const prompt = `Evaluate this student's explanation of "${topic}" as if you're a curious 10-year-old.
+Return ONLY valid JSON:
+
+{
+  "score": "number 0-100",
+  "feedback": "string - encouraging feedback in English",
+  "pass": "boolean - true if score > 70"
+}
+
+Explanation: "${explanation}"`;
+
+		const response = await client.chat.completions.create({
+			model: env.OPENCODE_ZEN_MODEL || 'minimax-m2.5',
+			messages: [{ role: 'user', content: prompt }],
+			response_format: { type: 'json_object' },
+			temperature: 0.3,
+		});
+
+		const content = response.choices[0]?.message?.content;
+		return content ? JSON.parse(content) : null;
+	} catch (error: any) {
+		console.error('Feynman Evaluation Error:', error?.message || error);
+		return null;
+	}
 }

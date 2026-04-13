@@ -20,13 +20,29 @@
 			"id": "04afeea9139e493bab05f9b72ba81bd0"
 		}
 	],
+	"env": {
+		"staging": {
+			"name": "clawppy-staging",
+			"vars": {
+				"ENVIRONMENT": "staging"
+			}
+		},
+		"production": {
+			"name": "clawppy",
+			"vars": {
+				"ENVIRONMENT": "production"
+			}
+		}
+	},
 	"vars": {
 		"TWILIO_ACCOUNT_SID": "placeholder",
 		"TWILIO_AUTH_TOKEN": "placeholder",
 		"OPENCODE_ZEN_API_KEY": "placeholder",
-		"OPENCODE_ZEN_BASE_URL": "https://api.opencode.ai/v1",
-		"OPENCODE_ZEN_MODEL": "opencode/gpt-4o",
-		"TWILIO_PHONE_NUMBER": "placeholder"
+		"OPENCODE_ZEN_BASE_URL": "https://opencode.ai/zen/v1",
+		"OPENCODE_ZEN_MODEL": "minimax-m2.5",
+		"DISABLE_AI": "false",
+		"TWILIO_PHONE_NUMBER": "placeholder",
+		"RAZORPAY_KEY_ID": "placeholder"
 	}
 	/**
 	 * Smart Placement

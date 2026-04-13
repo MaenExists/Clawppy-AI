@@ -1,0 +1,19 @@
+
+ ⛅️ wrangler 4.81.1
+───────────────────
+Using secrets defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                                                           Resource                  Mode
+env.CLAWPPY_KV (04afeea9139e493bab05f9b72ba81bd0)                 KV Namespace              local
+env.TWILIO_ACCOUNT_SID ("placeholder")                            Environment Variable      local
+env.TWILIO_AUTH_TOKEN ("placeholder")                             Environment Variable      local
+env.OPENCODE_ZEN_API_KEY ("(hidden)")                             Environment Variable      local
+env.OPENCODE_ZEN_BASE_URL ("https://api.opencode.ai/v1")          Environment Variable      local
+env.OPENCODE_ZEN_MODEL ("opencode/gpt-4o")                        Environment Variable      local
+env.TWILIO_PHONE_NUMBER ("placeholder")                           Environment Variable      local
+
+❓ Your types might be out of date. Re-run `wrangler types` to ensure your types are correct.
+⎔ Starting local server...
+[wrangler:info] Ready on http://localhost:8787
+[MOCK TWILIO] Sending message to whatsapp: 1234567890: I'm Clawppy! I see you're asking about 'What is gravity?'. What do you already know about it?
+[wrangler:info] POST / 200 OK (31ms)
