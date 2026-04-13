@@ -1,5 +1,5 @@
 import { Env, TopicState } from './types';
-import { getUserState, saveUserState, getOrCreateUser } from './user';
+import { getUserState, saveUserState, getOrCreateUser, UserStateFull } from './user';
 import { getAIResponse, analyzeIntent, evaluateFeynman } from './ai';
 import { sendWhatsAppMessage, sendWhatsAppReplyButtons } from './twilio';
 import { getDueReviews, calculateNextReview } from './scheduler';
@@ -119,7 +119,7 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
 async function handleCommand(
 	body: string,
 	from: string,
-	userState: ReturnType<typeof getUserState>,
+	userState: UserStateFull,
 	env: Env
 ): Promise<Response> {
 	const parts = body.split(' ');
@@ -168,7 +168,7 @@ async function handleCommand(
 // SPECIFIC HANDLERS
 // ============================================================================
 
-async function handleGreeting(from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleGreeting(from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const isNewUser = userState.joinedAt === userState.lastActive;
 	
 	let msg = isNewUser
@@ -186,7 +186,7 @@ async function handleGreeting(from: string, userState: ReturnType<typeof getUser
 	return new Response('OK');
 }
 
-async function showKnowledgeMap(from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function showKnowledgeMap(from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	let mapText = '*📚 Your Knowledge Map*\n\n';
 	const topics = Object.entries(userState.knowledgeMap);
 
@@ -209,7 +209,7 @@ async function showKnowledgeMap(from: string, userState: ReturnType<typeof getUs
 	return new Response('OK');
 }
 
-async function handleReviewCommand(args: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleReviewCommand(args: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	// Specific topic review
 	if (args && userState.knowledgeMap[args]) {
 		userState.currentTopic = args;
@@ -235,7 +235,7 @@ async function handleReviewCommand(args: string, from: string, userState: Return
 	return new Response('OK');
 }
 
-async function handleUpgradeCommand(from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleUpgradeCommand(from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	if (userState.isPro) {
 		await sendWhatsAppMessage(from, "🎉 You're already a Pro user! Thanks for supporting Clawppy.", env);
 		return new Response('OK');
@@ -259,7 +259,7 @@ async function handleUpgradeCommand(from: string, userState: ReturnType<typeof g
 	return new Response('OK');
 }
 
-async function handlePracticeCommand(args: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handlePracticeCommand(args: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const topic = args || userState.currentTopic || 'General';
 	
 	// In production, this would generate actual practice questions
@@ -272,7 +272,7 @@ async function handlePracticeCommand(args: string, from: string, userState: Retu
 	return new Response('OK');
 }
 
-async function handlePaymentConfirmation(body: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handlePaymentConfirmation(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const choice = body.toUpperCase().trim();
 
 	if (choice === 'MONTHLY' || choice === 'YES') {
@@ -303,7 +303,7 @@ async function handlePaymentConfirmation(body: string, from: string, userState: 
 // QUIZ & INTERACTION HANDLERS
 // ============================================================================
 
-async function handleQuizAnswer(body: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleQuizAnswer(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	if (!userState.currentTopic || !userState.knowledgeMap[userState.currentTopic]) {
 		userState.waitingForQuizAnswer = false;
 		await saveUserState(userState, env);
@@ -343,7 +343,7 @@ async function handleQuizAnswer(body: string, from: string, userState: ReturnTyp
 	return await handleRegularMessage(body, from, userState, env);
 }
 
-async function handleConfidenceRating(body: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleConfidenceRating(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	const match = body.match(/(\d+)/);
 	if (!match) {
 		await sendWhatsAppMessage(from, "Please reply with a number 1-10", env);
@@ -366,7 +366,7 @@ async function handleConfidenceRating(body: string, from: string, userState: Ret
 	return new Response('OK');
 }
 
-async function handleFeynmanExplanation(body: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleFeynmanExplanation(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	if (!userState.currentTopic) {
 		userState.waitingForFeynman = false;
 		return await handleRegularMessage(body, from, userState, env);
@@ -397,7 +397,7 @@ async function handleFeynmanExplanation(body: string, from: string, userState: R
 // REGULAR MESSAGE HANDLER
 // ============================================================================
 
-async function handleRegularMessage(body: string, from: string, userState: ReturnType<typeof getUserState>, env: Env): Promise<Response> {
+async function handleRegularMessage(body: string, from: string, userState: UserStateFull, env: Env): Promise<Response> {
 	// Analyze intent
 	const intent = await analyzeIntent(body, userState, env);
 
@@ -434,7 +434,7 @@ async function handleRegularMessage(body: string, from: string, userState: Retur
 // STREAK MANAGEMENT
 // ============================================================================
 
-function updateStreak(userState: ReturnType<typeof getUserState>): void {
+function updateStreak(userState: UserStateFull): void {
 	const today = new Date().toISOString().split('T')[0];
 	const lastDate = userState.lastActive.split('T')[0];
 

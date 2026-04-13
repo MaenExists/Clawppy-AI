@@ -145,7 +145,7 @@ export async function analyzeIntent(
 				}
 			}
 
-			return { newTopic: null };
+			return { newTopic: undefined };
 		}
 
 		const prompt = `Analyze this WhatsApp message from a student. Return ONLY valid JSON:
